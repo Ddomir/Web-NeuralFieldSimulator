@@ -1,7 +1,8 @@
 import { initGPU } from "./gpu/device.ts";
-import { DEFAULT_PARAMS, createFieldBuffers } from "./sim/field.ts";
+import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer } from "./sim/field.ts";
 import { ComputePipeline } from "./gpu/compute.ts";
 import { RenderPipeline } from "./gpu/render.ts";
+import { ControlsPanel } from "./ui/controls.ts";
 
 const statusEl = document.getElementById("status")!;
 const canvas   = document.getElementById("webgpu-canvas") as HTMLCanvasElement;
@@ -18,7 +19,8 @@ async function main(): Promise<void> {
   if (!gpu) { showError("WebGPU is not supported or unavailable."); return; }
 
   const { device, format, context } = gpu;
-  const params = DEFAULT_PARAMS;
+  // params is mutable — sliders write into this object then push to GPU
+  const params = { ...DEFAULT_PARAMS };
 
   // Allocate ping/pong/params buffers + ping init data
   const buffers = createFieldBuffers(device, params);
@@ -26,6 +28,13 @@ async function main(): Promise<void> {
   // Build compute (field update) and render (colorized display) pipelines to be dispatched
   const compute = new ComputePipeline(device, buffers, params);
   const render  = new RenderPipeline(device, format, params);
+
+  // Controls panel — on any slider change, push updated params to both GPU buffers
+  new ControlsPanel(document.body, params, (updated) => {
+    Object.assign(params, updated);
+    updateParamBuffer(device, buffers, params);
+    render.updateSigmoidParams(params.beta, params.theta);
+  });
 
   statusEl.textContent = "Running";
 

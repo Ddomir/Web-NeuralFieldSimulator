@@ -99,3 +99,9 @@ export function createFieldBuffers(device: GPUDevice, p: FieldParams): FieldBuff
 
   return { ping, pong, params };
 }
+
+// Write updated params into the existing GPU uniform buffer.
+export function updateParamBuffer(device: GPUDevice, buffers: FieldBuffers, p: FieldParams): void {
+  const data = encodeParams(p);
+  device.queue.writeBuffer(buffers.params, 0, data);
+}

@@ -75,4 +75,13 @@ export class RenderPipeline {
     pass.draw(6); // 2 triangles = 6 vertices, no vertex buffer
     pass.end();
   }
+
+  // Update beta/theta in the render uniform buffer when sliders change.
+  updateSigmoidParams(beta: number, theta: number): void {
+    const buf = new ArrayBuffer(8);
+    const dv = new DataView(buf);
+    dv.setFloat32(0, beta,  true);
+    dv.setFloat32(4, theta, true);
+    this.device.queue.writeBuffer(this.paramsBuffer, 8, buf);
+  }
 }
