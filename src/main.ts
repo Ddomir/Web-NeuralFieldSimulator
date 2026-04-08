@@ -1,5 +1,10 @@
+import { initGPU } from "./gpu/device.ts";
+import { DEFAULT_PARAMS, createFieldBuffers } from "./sim/field.ts";
+import { ComputePipeline } from "./gpu/compute.ts";
+import { RenderPipeline } from "./gpu/render.ts";
+
 const statusEl = document.getElementById("status")!;
-const canvas = document.getElementById("webgpu-canvas") as HTMLCanvasElement;
+const canvas   = document.getElementById("webgpu-canvas") as HTMLCanvasElement;
 
 function showError(msg: string): void {
   statusEl.textContent = msg;
@@ -8,28 +13,33 @@ function showError(msg: string): void {
 }
 
 async function main(): Promise<void> {
-  // Check API exists
-  if (!navigator.gpu) {
-    showError("WebGPU is not supported in this browser.");
-    return;
+  // Check for GPU compatibility.
+  const gpu = await initGPU(canvas);
+  if (!gpu) { showError("WebGPU is not supported or unavailable."); return; }
+
+  const { device, format, context } = gpu;
+  const params = DEFAULT_PARAMS;
+
+  // Allocate ping/pong/params buffers + ping init data
+  const buffers = createFieldBuffers(device, params);
+
+  // Build compute (field update) and render (colorized display) pipelines to be dispatched
+  const compute = new ComputePipeline(device, buffers, params);
+  const render  = new RenderPipeline(device, format, params);
+
+  statusEl.textContent = "Running";
+
+  // Main loop: one compute step + one render pass per animation frame
+  function frame(): void {
+    const encoder  = device.createCommandEncoder();
+    const fieldNow = compute.dispatch(encoder, buffers);
+    const swapView = context.getCurrentTexture().createView();
+    render.draw(encoder, fieldNow, swapView);
+    device.queue.submit([encoder.finish()]);
+    requestAnimationFrame(frame);
   }
 
-  // Request adapter
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    showError("No WebGPU adapter found (GPU unavailable or blocked).");
-    return;
-  }
-
-  // Request device
-  const device = await adapter.requestDevice();
-
-  const context = canvas.getContext("webgpu") as GPUCanvasContext;
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format });
-
-  statusEl.textContent = "WebGPU ready";
-
+  requestAnimationFrame(frame);
 }
 
 main();
