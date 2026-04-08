@@ -28,7 +28,7 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOut {
   var out: VertexOut;
   out.pos = vec4(p, 0.0, 1.0);
   // UV: (0,0) top-left, (1,1) bottom-right
-  out.uv  = p * 0.5 + 0.5;
+  out.uv = vec2(p.x * 0.5 + 0.5, 1.0 - (p.y * 0.5 + 0.5));
   return out;
 }
 

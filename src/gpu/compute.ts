@@ -66,8 +66,18 @@ export class ComputePipeline {
   }
 
   /**
+   * The buffer that holds the most recently written field state.
+   */
+  get currentBuffer(): GPUBuffer | null {
+    if (this._currentBuffer === null) return null;
+    return this._currentBuffer;
+  }
+  private _currentBuffer: GPUBuffer | null = null;
+
+  
+  /**
    * Encodes one simulation step into the provided command encoder.
-   * 
+   *
    * Returns the buffer that now holds the latest field state (for the renderer).
   */
   dispatch(encoder: GPUCommandEncoder, buffers: FieldBuffers): GPUBuffer {
@@ -81,6 +91,7 @@ export class ComputePipeline {
     pass.dispatchWorkgroups(this.dispatchX, this.dispatchY); // sets off needed amount of workgroups
     pass.end(); // finish
 
+    this._currentBuffer = outBuffer;
     return outBuffer; // caller gives this to the render pipeline
   }
 }

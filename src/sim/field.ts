@@ -100,6 +100,72 @@ export function createFieldBuffers(device: GPUDevice, p: FieldParams): FieldBuff
   return { ping, pong, params };
 }
 
+/**
+ * Inject a Gaussian excitation bump additively.
+ *
+ * radius   — half-width of the patch in cells; bump falls to ~0.02 at the edge
+ * strength — peak value added to u at the center cell
+ */
+export async function injectExcitation(
+  device: GPUDevice,
+  fieldBuffer: GPUBuffer,
+  p: FieldParams,
+  cx: number,
+  cy: number,
+  radius = 8,
+  strength = 2.0,
+): Promise<void> {
+  const sigma2 = (radius / 2) ** 2;
+
+  // Clamp bounds to grid
+  const x0 = Math.max(0, cx - radius);
+  const y0 = Math.max(0, cy - radius);
+  const x1 = Math.min(p.width  - 1, cx + radius);
+  const y1 = Math.min(p.height - 1, cy + radius);
+
+  const patchW = x1 - x0 + 1; // which cells
+  const patchH = y1 - y0 + 1;
+
+  const rowBytes  = patchW * 4; // copy p.width wide rows of cells
+  const totalBytes = patchH * rowBytes;
+
+  // Staging buffer: MAP_READ so the CPU can read GPU memory after copyBufferToBuffer
+  const staging = device.createBuffer({
+    size:  totalBytes,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  });
+
+  // Copy each patch row from field buffer into staging buffer
+  const encoder = device.createCommandEncoder();
+  for (let row = 0; row < patchH; row++) {
+    const srcOffset = ((y0 + row) * p.width + x0) * 4;
+    const dstOffset = row * rowBytes;
+    encoder.copyBufferToBuffer(fieldBuffer, srcOffset, staging, dstOffset, rowBytes);
+  }
+  device.queue.submit([encoder.finish()]);
+
+  // Wait for GPU copy, then map for CPU read
+  await staging.mapAsync(GPUMapMode.READ);
+  const readback = new Float32Array(staging.getMappedRange().slice(0)); // copy out
+  staging.unmap();
+  staging.destroy();
+
+  // Add bump to the readback values
+  for (let row = 0; row < patchH; row++) {
+    for (let col = 0; col < patchW; col++) {
+      const dx = (x0 + col) - cx;
+      const dy = (y0 + row) - cy;
+      readback[row * patchW + col] += strength * Math.exp(-(dx * dx + dy * dy) / sigma2);
+    }
+  }
+
+  // Write the updated patch back row by row (field buffer is WIDTH-wide, patch is patchW-wide)
+  for (let row = 0; row < patchH; row++) {
+    const fieldOffset = ((y0 + row) * p.width + x0) * 4;
+    device.queue.writeBuffer(fieldBuffer, fieldOffset, readback.buffer, row * rowBytes, rowBytes);
+  }
+}
+
 // Write updated params into the existing GPU uniform buffer.
 export function updateParamBuffer(device: GPUDevice, buffers: FieldBuffers, p: FieldParams): void {
   const data = encodeParams(p);

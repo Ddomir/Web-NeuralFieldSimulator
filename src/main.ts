@@ -1,5 +1,5 @@
 import { initGPU } from "./gpu/device.ts";
-import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer } from "./sim/field.ts";
+import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer, injectExcitation } from "./sim/field.ts";
 import { ComputePipeline } from "./gpu/compute.ts";
 import { RenderPipeline } from "./gpu/render.ts";
 import { ControlsPanel } from "./ui/controls.ts";
@@ -35,6 +35,21 @@ async function main(): Promise<void> {
     updateParamBuffer(device, buffers, params);
     render.updateSigmoidParams(params.beta, params.theta);
   });
+
+  // Click or drag on the canvas → inject excitation at the cursor position.
+  // pointermove fires continuously; the buttons check ensures it only acts while held.
+  function handlePointer(e: PointerEvent): void {
+    if (!(e.buttons & 1)) return; // left button must be held
+    const buf = compute.currentBuffer;
+    if (!buf) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = Math.floor(((e.clientX - rect.left) / rect.width)  * params.width);
+    const cy = Math.floor(((e.clientY - rect.top)  / rect.height) * params.height);
+    injectExcitation(device, buf, params, cx, cy);
+  }
+
+  canvas.addEventListener("pointerdown", handlePointer);
+  canvas.addEventListener("pointermove", handlePointer);
 
   statusEl.textContent = "Running";
 
