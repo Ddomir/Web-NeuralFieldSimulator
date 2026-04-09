@@ -9,8 +9,8 @@ import type { FieldBuffers, FieldParams } from "../sim/field.ts";
 export class ComputePipeline {
   private pipeline: GPUComputePipeline;
   // Two bind groups ping-ponging between each other
-  private bindGroupA: GPUBindGroup; // ping-in, pong-out
-  private bindGroupB: GPUBindGroup; // pong-in, ping-out
+  private bindGroupA: GPUBindGroup;
+  private bindGroupB: GPUBindGroup;
   private step = 0; // keeps track of frame number (for ping/pong swapping)
 
   // how many & which workgroups
@@ -26,11 +26,14 @@ export class ComputePipeline {
       },
     });
 
-    const layout = this.pipeline.getBindGroupLayout(0); // get schema/signature of pipeline resources at each binding
-    
-    // Put actual buffer into the bindGroups
-    this.bindGroupA = ComputePipeline.makeBindGroup(device, layout, buffers.params, buffers.ping, buffers.pong);
-    this.bindGroupB = ComputePipeline.makeBindGroup(device, layout, buffers.params, buffers.pong, buffers.ping);
+    const layout = this.pipeline.getBindGroupLayout(0);
+
+    // u - membrane potention
+    // v - adaptation current (pulls back u)
+    // A: u ping->in + pong->out, v ping->in + pong->out
+    this.bindGroupA = ComputePipeline.makeBindGroup(device, layout, buffers.params, buffers.ping, buffers.pong, buffers.vPing, buffers.vPong);
+    // B: u pong->in + u ping->out, v pong->in + v ping->out
+    this.bindGroupB = ComputePipeline.makeBindGroup(device, layout, buffers.params, buffers.pong, buffers.ping, buffers.vPong, buffers.vPing);
 
     // Each workgroup covers 16x16 cells; round up to cover whole grid
     this.dispatchX = Math.ceil(params.width  / 16);
@@ -52,15 +55,19 @@ export class ComputePipeline {
     device: GPUDevice,
     layout: GPUBindGroupLayout,
     paramsBuffer: GPUBuffer,
-    inBuffer: GPUBuffer,
-    outBuffer: GPUBuffer,
+    uIn: GPUBuffer,
+    uOut: GPUBuffer,
+    vIn: GPUBuffer,
+    vOut: GPUBuffer,
   ): GPUBindGroup {
     return device.createBindGroup({
       layout,
       entries: [
         { binding: 0, resource: { buffer: paramsBuffer } },
-        { binding: 1, resource: { buffer: inBuffer  } },
-        { binding: 2, resource: { buffer: outBuffer } },
+        { binding: 1, resource: { buffer: uIn  } },
+        { binding: 2, resource: { buffer: uOut } },
+        { binding: 3, resource: { buffer: vIn  } },
+        { binding: 4, resource: { buffer: vOut } },
       ],
     });
   }

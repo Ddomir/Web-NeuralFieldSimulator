@@ -1,5 +1,5 @@
-// Render shader — fullscreen quad that reads the neural field buffer
-// and maps firing rate -> color using a cool-hot colormap.
+// Render shader — fullscreen quad that reads the neural field buffer.
+// Displays firing rate f(u) = sigmoid(β·(u−θ)) rather than raw u.
 
 struct Params {
   width : u32,
@@ -32,20 +32,22 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOut {
   return out;
 }
 
-// cool to hot: maps t ∈ [0,1] to a gradient.
-// t=0 -> dark blue (inhibited), t=0.5 -> black (resting), t=1 -> white-orange (excited)
+// Colormap: blue → green → yellow → orange → red
 fn colormap(t: f32) -> vec3<f32> {
-  // Split into two halves for inhibited / excited
-  if (t < 0.5) {
-    // 0 -> deep blue, 0.5 -> black
-    let s = t * 2.0;
-    return mix(vec3(0.0, 0.1, 0.5), vec3(0.0, 0.0, 0.0), s); // blue val
-  } else {
-    // 0.5 -> black, 0.75 -> red-orange, 1.0 -> white
-    let s = (t - 0.5) * 2.0;
-    let hot = mix(vec3(0.0, 0.0, 0.0), vec3(1.0, 0.4, 0.0), s);
-    return mix(hot, vec3(1.0, 1.0, 0.9), s * s); // extra brightness near peak
-  }
+  // 0.00 → blue
+  // 0.25 → green
+  // 0.50 → yellow
+  // 0.75 → orange
+  // 1.00 → red
+  let a = mix(vec3(0.0, 0.0, 0.6), vec3(0.0, 0.6, 0.0), clamp(t / 0.25, 0.0, 1.0));
+  let b = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), clamp((t - 0.25) / 0.25, 0.0, 1.0));
+  let c = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.5, 0.0), clamp((t - 0.50) / 0.25, 0.0, 1.0));
+  let d = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.0, 0.0), clamp((t - 0.75) / 0.25, 0.0, 1.0));
+  var col = a;
+  if (t > 0.25) { col = b; }
+  if (t > 0.50) { col = c; }
+  if (t > 0.75) { col = d; }
+  return col;
 }
 
 @fragment
@@ -53,15 +55,12 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
   let W = params.width;
   let H = params.height;
 
-  // Map UV to integer cell coordinates
-  let cx = u32(in.uv.x * f32(W));
-  let cy = u32(in.uv.y * f32(H));
-  let cxc = min(cx, W - 1u);
-  let cyc = min(cy, H - 1u);
+  let cx = min(u32(in.uv.x * f32(W)), W - 1u);
+  let cy = min(u32(in.uv.y * f32(H)), H - 1u);
 
-  let u = field[cyc * W + cxc];
+  let u = field[cy * W + cx];
 
-  // Convert membrane potential to firing rate via sigmoid: f(u) ∈ [0, 1]
-  let t = 1.0 / (1.0 + exp(-params.beta * (u - params.theta)));
-  return vec4(colormap(t), 1.0);
+  // Render firing rate
+  let f = 1.0 / (1.0 + exp(-params.beta * (u - params.theta)));
+  return vec4(colormap(f), 1.0);
 }

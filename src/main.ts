@@ -3,6 +3,7 @@ import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer, injectExcitation
 import { ComputePipeline } from "./gpu/compute.ts";
 import { RenderPipeline } from "./gpu/render.ts";
 import { ControlsPanel } from "./ui/controls.ts";
+import { DebugOverlay } from "./ui/debug.ts";
 
 const statusEl = document.getElementById("status")!;
 const canvas   = document.getElementById("webgpu-canvas") as HTMLCanvasElement;
@@ -14,32 +15,29 @@ function showError(msg: string): void {
 }
 
 async function main(): Promise<void> {
-  // Check for GPU compatibility.
   const gpu = await initGPU(canvas);
   if (!gpu) { showError("WebGPU is not supported or unavailable."); return; }
 
   const { device, format, context } = gpu;
-  // params is mutable — sliders write into this object then push to GPU
   const params = { ...DEFAULT_PARAMS };
 
-  // Allocate ping/pong/params buffers + ping init data
   const buffers = createFieldBuffers(device, params);
-
-  // Build compute (field update) and render (colorized display) pipelines to be dispatched
   const compute = new ComputePipeline(device, buffers, params);
   const render  = new RenderPipeline(device, format, params);
+  render.updateSigmoidParams(params.beta, params.theta); // sync render buffer to initial params
 
-  // Controls panel — on any slider change, push updated params to both GPU buffers
-  new ControlsPanel(document.body, params, (updated) => {
-    Object.assign(params, updated);
-    updateParamBuffer(device, buffers, params);
-    render.updateSigmoidParams(params.beta, params.theta);
-  });
+  new ControlsPanel(
+    document.body,
+    params,
+    (updated) => {
+      Object.assign(params, updated);
+      updateParamBuffer(device, buffers, params);
+      render.updateSigmoidParams(params.beta, params.theta);
+    },
+  );
 
-  // Click or drag on the canvas → inject excitation at the cursor position.
-  // pointermove fires continuously; the buttons check ensures it only acts while held.
   function handlePointer(e: PointerEvent): void {
-    if (!(e.buttons & 1)) return; // left button must be held
+    if (!(e.buttons & 1)) return;
     const buf = compute.currentBuffer;
     if (!buf) return;
     const rect = canvas.getBoundingClientRect();
@@ -51,15 +49,36 @@ async function main(): Promise<void> {
   canvas.addEventListener("pointerdown", handlePointer);
   canvas.addEventListener("pointermove", handlePointer);
 
+  const debug = new DebugOverlay(
+    device,
+    () => compute.currentBuffer,
+    params.width * params.height,
+    () => params,
+  );
+
   statusEl.textContent = "Running";
 
-  // Main loop: one compute step + one render pass per animation frame
+  // Seed a central wave on startup.
+  setTimeout(() => {
+    const buf = compute.currentBuffer;
+    if (buf) injectExcitation(device, buf, params, params.width / 2 | 0, params.height / 2 | 0);
+  }, 200);
+
+  const STEPS_PER_FRAME = 12;
+
   function frame(): void {
-    const encoder  = device.createCommandEncoder();
-    const fieldNow = compute.dispatch(encoder, buffers);
-    const swapView = context.getCurrentTexture().createView();
-    render.draw(encoder, fieldNow, swapView);
+    params.frame = (params.frame + 1) & 0xffffffff;
+    updateParamBuffer(device, buffers, params);
+
+    const encoder = device.createCommandEncoder();
+    let fieldNow!: GPUBuffer;
+    for (let i = 0; i < STEPS_PER_FRAME; i++) {
+      fieldNow = compute.dispatch(encoder, buffers);
+    }
+
+    render.draw(encoder, fieldNow, context.getCurrentTexture().createView());
     device.queue.submit([encoder.finish()]);
+    debug.tick();
     requestAnimationFrame(frame);
   }
 

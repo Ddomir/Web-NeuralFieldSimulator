@@ -14,6 +14,23 @@ body {
   flex-shrink: 0;
 }
 
+#debug-overlay {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0,0,0,0.85);
+  border: 1px solid #2a2a2a;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 2;
+  color: #0f0;
+  pointer-events: none;
+  z-index: 100;
+  white-space: pre;
+}
+
+.dbg-hint { color: #444; }
+
 #status {
   position: absolute;
   top: 12px;
@@ -35,11 +52,56 @@ body {
   gap: 14px;
 }
 
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #222;
+}
+
+.preset-row button {
+  flex: 1 1 auto;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.preset-row button:hover {
+  background: #e07030;
+  color: #000;
+  border-color: #e07030;
+}
+
 .slider-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+
+.adapt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid #222;
+  padding-top: 10px;
+}
+
+.adapt-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.adapt-header label { flex: 1; }
+.adapt-header input[type="checkbox"] { accent-color: #e07030; width: 14px; height: 14px; cursor: pointer; }
+
+.adapt-section input[type="range"]:disabled { opacity: 0.3; cursor: default; }
 
 .slider-row label {
   font-size: 11px;
