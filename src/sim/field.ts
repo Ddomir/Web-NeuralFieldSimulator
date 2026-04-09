@@ -14,12 +14,60 @@ export interface FieldParams {
   h: number;
   noise: number;
   frame: number;
+  tonic: number;  // constant baseline drive added to each cell each step
 }
 
 const DOMAIN = 10.0;
 const W = 256;
 const H = 256;
 const h = DOMAIN / W;
+
+export interface Preset {
+  name: string;
+  params: Partial<FieldParams>;
+}
+
+export const PRESETS: Preset[] = [
+  {
+    name: "Evoked Wave",
+    params: {
+      dt: 0.02, tau: 1.0, tau_v: 5.0,
+      beta: 20.0, theta: 0.20,
+      A_e: 1.4 / (2 * Math.PI * 4 * 4),
+      A_i: 0.9 / (2 * Math.PI * 8 * 8),
+      sigma_e: 4, sigma_i: 8, kernelRadius: 16, noise: 0.001,
+    },
+  },
+  {
+    name: "Alpha Rest",
+    params: {
+      dt: 0.02, tau: 1.0, tau_v: 10.0,
+      beta: 8.0, theta: 0.20,
+      A_e: 1.0 / (2 * Math.PI * 4 * 4),
+      A_i: 0.4 / (2 * Math.PI * 8 * 8),
+      sigma_e: 4, sigma_i: 8, kernelRadius: 16, noise: 0.050,
+      tonic: 0.10,
+    },
+  },
+  {
+    name: "Seizure",
+    params: {
+      // Tonic-clonic via slow adaptation:
+      // Silent FP: u*=0.022 ✓  |  Pulse triggers seizure → u rises to ~0.74 (tonic)
+      // tau_v=40 slowly builds v, pulls u back below threshold at t≈56 (clonic drop)
+      // v then decays, field re-ignites at t≈108 → repeats ~every 50 sim-time units
+      // No tonic drive — field is genuinely silent at rest, only fires when clicked
+      // conv_front = W_net/2 = 0.40 > theta=0.20 → wave fills as solid disk ✓
+      // W_net = 1.2 - 0.4 = 0.8
+      dt: 0.02, tau: 1.0, tau_v: 40.0,
+      beta: 12.0, theta: 0.20,
+      A_e: 1.2 / (2 * Math.PI * 4 * 4),
+      A_i: 0.4 / (2 * Math.PI * 8 * 8),
+      sigma_e: 4, sigma_i: 8, kernelRadius: 16, noise: 0.001,
+      tonic: 0.0,
+    },
+  },
+];
 
 // Evoked wave
 export const DEFAULT_PARAMS: FieldParams = {
@@ -38,6 +86,7 @@ export const DEFAULT_PARAMS: FieldParams = {
   kernelRadius: 16,
   noise:    0.001,
   frame:    0,
+  tonic:    0.0,
 };
 
 export interface FieldBuffers {
@@ -49,7 +98,7 @@ export interface FieldBuffers {
 }
 
 export function encodeParams(p: FieldParams): ArrayBuffer {
-  const buf = new ArrayBuffer(15 * 4);
+  const buf = new ArrayBuffer(16 * 4);
   const view = new DataView(buf);
   view.setUint32( 0,  p.width,        true);
   view.setUint32( 4,  p.height,       true);
@@ -66,6 +115,7 @@ export function encodeParams(p: FieldParams): ArrayBuffer {
   view.setFloat32(48, p.noise,        true);
   view.setUint32( 52, p.frame,        true);
   view.setFloat32(56, p.h,            true);
+  view.setFloat32(60, p.tonic,        true);
   return buf;
 }
 

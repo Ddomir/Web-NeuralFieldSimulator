@@ -20,6 +20,7 @@ struct Params {
   noise        : f32,
   frame        : u32,
   h            : f32,  // grid spacing
+  tonic        : f32,  // constant baseline drive
 }
 
 @group(0) @binding(0) var<uniform>             params : Params;
@@ -90,7 +91,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let adaptation = select(0.0, v, use_v);
 
   // euler (time) step for u -> smaller = accurate but slower
-  let du = (params.dt / params.tau) * (-u + conv - adaptation + eta);
+  let du = (params.dt / params.tau) * (-u + conv - adaptation + params.tonic + eta);
   u_out[idx] = clamp(u + du, -3.0, 3.0);
 
   // euler step for v

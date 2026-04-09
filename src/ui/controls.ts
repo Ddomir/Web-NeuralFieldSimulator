@@ -1,4 +1,5 @@
 import type { FieldParams } from "../sim/field.ts";
+import { PRESETS } from "../sim/field.ts";
 
 interface SliderDef {
   key: keyof FieldParams;
@@ -23,6 +24,7 @@ const SLIDERS: SliderDef[] = [
 export class ControlsPanel {
   private params: FieldParams;
   private onChange: (p: FieldParams) => void;
+  private onPreset: (p: FieldParams) => void;
   private sliderEls = new Map<keyof FieldParams, { slider: HTMLInputElement; display: HTMLSpanElement }>();
   private tauVSlider!: HTMLInputElement;
   private tauVDisplay!: HTMLSpanElement;
@@ -32,9 +34,11 @@ export class ControlsPanel {
     container: HTMLElement,
     initialParams: FieldParams,
     onChange: (p: FieldParams) => void,
+    onPreset: (p: FieldParams) => void,
   ) {
     this.params   = { ...initialParams };
     this.onChange = onChange;
+    this.onPreset = onPreset;
     this.build(container);
   }
 
@@ -42,12 +46,33 @@ export class ControlsPanel {
     const panel = document.createElement("div");
     panel.id = "controls-panel";
 
+    panel.appendChild(this.buildPresetRow());
+
     for (const def of SLIDERS) {
       panel.appendChild(this.buildSliderRow(def));
     }
 
     panel.appendChild(this.buildAdaptationRow());
     container.appendChild(panel);
+  }
+
+  private buildPresetRow(): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "preset-row";
+
+    for (const preset of PRESETS) {
+      const btn = document.createElement("button");
+      btn.textContent = preset.name;
+      btn.className = "preset-btn";
+      btn.addEventListener("click", () => {
+        Object.assign(this.params, preset.params);
+        this.syncSliders();
+        this.onPreset({ ...this.params });
+      });
+      row.appendChild(btn);
+    }
+
+    return row;
   }
 
   private buildSliderRow(def: SliderDef): HTMLElement {
@@ -80,6 +105,20 @@ export class ControlsPanel {
     row.appendChild(slider);
     row.appendChild(valueDisplay);
     return row;
+  }
+
+  private syncSliders(): void {
+    for (const [key, { slider, display }] of this.sliderEls) {
+      const val = this.params[key] as number;
+      slider.value = String(val);
+      display.textContent = this.formatValue(val);
+    }
+    const adaptOn = this.params.tau_v < 100;
+    this.adaptCheckbox.checked = adaptOn;
+    this.tauVSlider.disabled = !adaptOn;
+    const effectiveTauV = adaptOn ? this.params.tau_v : 10;
+    this.tauVSlider.value = String(effectiveTauV);
+    this.tauVDisplay.textContent = this.formatValue(effectiveTauV);
   }
 
   private buildAdaptationRow(): HTMLElement {

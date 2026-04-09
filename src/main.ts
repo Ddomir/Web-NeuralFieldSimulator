@@ -1,5 +1,5 @@
 import { initGPU } from "./gpu/device.ts";
-import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer, injectExcitation } from "./sim/field.ts";
+import { DEFAULT_PARAMS, createFieldBuffers, updateParamBuffer, injectExcitation, resetField } from "./sim/field.ts";
 import { ComputePipeline } from "./gpu/compute.ts";
 import { RenderPipeline } from "./gpu/render.ts";
 import { ControlsPanel } from "./ui/controls.ts";
@@ -33,6 +33,12 @@ async function main(): Promise<void> {
       Object.assign(params, updated);
       updateParamBuffer(device, buffers, params);
       render.updateSigmoidParams(params.beta, params.theta);
+    },
+    (preset) => {
+      Object.assign(params, preset);
+      updateParamBuffer(device, buffers, params);
+      render.updateSigmoidParams(params.beta, params.theta);
+      resetField(device, buffers, params);
     },
   );
 
