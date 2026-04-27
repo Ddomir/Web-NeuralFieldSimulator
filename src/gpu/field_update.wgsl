@@ -1,7 +1,7 @@
 // Neural field update — Amari model with optional spike-frequency adaptation + noise
 //
 // Equations (from Amari 1977, Mexican hat kernel form from Coombes et al.):
-//   tau * du/dt = -u + h² * Σ w(|x-y|) * f(u(y)) + eta      [membrane potential]
+//   tau * du/dt = -u + Σ w(|x-y|) * f(u(y)) + eta            [membrane potential]
 //   tau_v * dv/dt = u - v                                      [adaptation, optional]
 
 struct Params {
@@ -19,7 +19,6 @@ struct Params {
   kernel_radius: u32,  // in grid cells
   noise        : f32,
   frame        : u32,
-  h            : f32,  // grid spacing
   tonic        : f32,  // constant baseline drive
 }
 

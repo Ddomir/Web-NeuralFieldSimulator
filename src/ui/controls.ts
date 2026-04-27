@@ -1,5 +1,6 @@
 import type { FieldParams } from "../sim/field.ts";
 import { PRESETS } from "../sim/field.ts";
+import { EquationPanel } from "./equation.ts";
 
 interface SliderDef {
   key: keyof FieldParams;
@@ -7,24 +8,26 @@ interface SliderDef {
   min: number;
   max: number;
   step: number;
+  color?: string;
 }
 
 const SLIDERS: SliderDef[] = [
-  { key: "noise",   label: "Noise",             min: 0.0,    max: 0.5,   step: 0.001  },
+  { key: "noise",   label: "Noise",             min: 0.0,    max: 0.5,   step: 0.001,  color: "#c792ea" },
   { key: "dt",      label: "Timestep (dt)",      min: 0.005,  max: 0.1,   step: 0.005  },
-  { key: "tau",     label: "Membrane τ",         min: 0.1,    max: 5.0,   step: 0.1    },
-  { key: "beta",    label: "Sigmoid gain (β)",   min: 1.0,    max: 30.0,  step: 0.5    },
-  { key: "theta",   label: "Threshold (θ)",      min: -1.0,   max: 1.0,   step: 0.05   },
-  { key: "A_e",     label: "Excit. amp (Aₑ)",   min: 0.0005, max: 0.025, step: 0.0005 },
-  { key: "A_i",     label: "Inhib. amp (Aᵢ)",   min: 0.0005, max: 0.025, step: 0.0005 },
-  { key: "sigma_e", label: "Excit. spread (σₑ)", min: 2.0,    max: 20.0,  step: 1.0    },
-  { key: "sigma_i", label: "Inhib. spread (σᵢ)", min: 4.0,    max: 30.0,  step: 1.0    },
+  { key: "tau",     label: "Membrane τ",         min: 0.1,    max: 5.0,   step: 0.1,    color: "#7eb8f7" },
+  { key: "beta",    label: "Sigmoid gain (β)",   min: 1.0,    max: 30.0,  step: 0.5,    color: "#f7c948" },
+  { key: "theta",   label: "Threshold (θ)",      min: -1.0,   max: 1.0,   step: 0.05,   color: "#f7c948" },
+  { key: "A_e",     label: "Excit. amp (Aₑ)",   min: 0.0005, max: 0.025, step: 0.0005, color: "#6dd6a0" },
+  { key: "A_i",     label: "Inhib. amp (Aᵢ)",   min: 0.0005, max: 0.025, step: 0.0005, color: "#f47c7c" },
+  { key: "sigma_e", label: "Excit. spread (σₑ)", min: 2.0,    max: 20.0,  step: 1.0,    color: "#3ecfcf" },
+  { key: "sigma_i", label: "Inhib. spread (σᵢ)", min: 4.0,    max: 30.0,  step: 1.0,    color: "#c97bf7" },
 ];
 
 export class ControlsPanel {
   private params: FieldParams;
   private onChange: (p: FieldParams) => void;
   private onPreset: (p: FieldParams) => void;
+  private equationPanel!: EquationPanel;
   private sliderEls = new Map<keyof FieldParams, { slider: HTMLInputElement; display: HTMLSpanElement }>();
   private tauVSlider!: HTMLInputElement;
   private tauVDisplay!: HTMLSpanElement;
@@ -46,6 +49,7 @@ export class ControlsPanel {
     const panel = document.createElement("div");
     panel.id = "controls-panel";
 
+    this.equationPanel = new EquationPanel(panel, this.params);
     panel.appendChild(this.buildPresetRow());
 
     for (const def of SLIDERS) {
@@ -68,6 +72,7 @@ export class ControlsPanel {
         Object.assign(this.params, preset.params);
         this.syncSliders();
         this.onPreset({ ...this.params });
+        this.equationPanel.update(this.params);
       });
       row.appendChild(btn);
     }
@@ -78,6 +83,7 @@ export class ControlsPanel {
   private buildSliderRow(def: SliderDef): HTMLElement {
     const row = document.createElement("div");
     row.className = "slider-row";
+    if (def.color) row.style.setProperty("--slider-color", def.color);
 
     const label = document.createElement("label");
     label.textContent = def.label;
@@ -98,6 +104,7 @@ export class ControlsPanel {
       (this.params as unknown as Record<string, number>)[def.key] = val;
       valueDisplay.textContent = this.formatValue(val);
       this.onChange({ ...this.params });
+      this.equationPanel.update(this.params);
     });
 
     this.sliderEls.set(def.key, { slider, display: valueDisplay });
@@ -124,6 +131,7 @@ export class ControlsPanel {
   private buildAdaptationRow(): HTMLElement {
     const section = document.createElement("div");
     section.className = "adapt-section";
+    section.style.setProperty("--slider-color", "#e07030");
 
     const header = document.createElement("div");
     header.className = "slider-row adapt-header";

@@ -11,16 +11,13 @@ export interface FieldParams {
   sigma_e: number;
   sigma_i: number;
   kernelRadius: number;
-  h: number;
   noise: number;
   frame: number;
   tonic: number;  // constant baseline drive added to each cell each step
 }
 
-const DOMAIN = 10.0;
 const W = 256;
 const H = 256;
-const h = DOMAIN / W;
 
 export interface Preset {
   name: string;
@@ -52,13 +49,6 @@ export const PRESETS: Preset[] = [
   {
     name: "Seizure",
     params: {
-      // Tonic-clonic via slow adaptation:
-      // Silent FP: u*=0.022 ✓  |  Pulse triggers seizure → u rises to ~0.74 (tonic)
-      // tau_v=40 slowly builds v, pulls u back below threshold at t≈56 (clonic drop)
-      // v then decays, field re-ignites at t≈108 → repeats ~every 50 sim-time units
-      // No tonic drive — field is genuinely silent at rest, only fires when clicked
-      // conv_front = W_net/2 = 0.40 > theta=0.20 → wave fills as solid disk ✓
-      // W_net = 1.2 - 0.4 = 0.8
       dt: 0.02, tau: 1.0, tau_v: 40.0,
       beta: 12.0, theta: 0.20,
       A_e: 1.2 / (2 * Math.PI * 4 * 4),
@@ -73,7 +63,6 @@ export const PRESETS: Preset[] = [
 export const DEFAULT_PARAMS: FieldParams = {
   width:  W,
   height: H,
-  h,
   dt:       0.02,
   tau:      1.0,
   tau_v:    5.0,
@@ -98,7 +87,7 @@ export interface FieldBuffers {
 }
 
 export function encodeParams(p: FieldParams): ArrayBuffer {
-  const buf = new ArrayBuffer(16 * 4);
+  const buf = new ArrayBuffer(15 * 4);
   const view = new DataView(buf);
   view.setUint32( 0,  p.width,        true);
   view.setUint32( 4,  p.height,       true);
@@ -114,8 +103,7 @@ export function encodeParams(p: FieldParams): ArrayBuffer {
   view.setUint32( 44, p.kernelRadius, true);
   view.setFloat32(48, p.noise,        true);
   view.setUint32( 52, p.frame,        true);
-  view.setFloat32(56, p.h,            true);
-  view.setFloat32(60, p.tonic,        true);
+  view.setFloat32(56, p.tonic,        true);
   return buf;
 }
 
