@@ -1,6 +1,7 @@
 import type { FieldParams } from "../sim/field.ts";
 
 export class KernelOverlay {
+  private simCanvas: HTMLCanvasElement;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private params: FieldParams;
@@ -12,7 +13,8 @@ export class KernelOverlay {
   private ringCache: ImageData | null = null;
   private cacheKey = "";
 
-  constructor(private simCanvas: HTMLCanvasElement, params: FieldParams) {
+  constructor(simCanvas: HTMLCanvasElement, params: FieldParams) {
+    this.simCanvas = simCanvas;
     this.params = { ...params };
 
     this.canvas = document.createElement("canvas");
