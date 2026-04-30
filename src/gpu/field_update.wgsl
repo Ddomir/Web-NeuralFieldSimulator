@@ -68,6 +68,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var conv: f32 = 0.0;
   for (var dy = -R; dy <= R; dy++) { // loop through every cell neighbor
     for (var dx = -R; dx <= R; dx++) { 
+      if (f32(dx*dx + dy*dy) > f32(R*R)) { continue; }
       // neighbor coords
       let nx = i32(x) + dx;
       let ny = i32(y) + dy;

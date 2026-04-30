@@ -2,6 +2,7 @@
 // Each term shows a tooltip explaining what it represents and which param controls it.
 
 import type { FieldParams } from "../sim/field.ts";
+import type { KernelOverlay } from "./kernel_overlay.ts";
 
 interface Term {
   text: string;
@@ -65,17 +66,20 @@ const HIGHLIGHT_COLORS: Record<string, string> = {
   adapt:     "#e07030",
   tonic:     "#88d8a0",
   noise:     "#c792ea",
-  excit_amp: "#6dd6a0",  // excitatory amplitude — green
-  excit_sig: "#3ecfcf",  // excitatory spread — teal
-  inhib_amp: "#f47c7c",  // inhibitory amplitude — red
-  inhib_sig: "#c97bf7",  // inhibitory spread — violet
+  excit_amp: "#6dd6a0",
+  excit_sig: "#3ecfcf",
+  inhib_amp: "#f47c7c",
+  inhib_sig: "#c97bf7",
 };
 
 export class EquationPanel {
   private kernelCanvas!: HTMLCanvasElement;
   private kernelCtx!: CanvasRenderingContext2D;
+  private overlay: KernelOverlay;
 
-  constructor(container: HTMLElement, initialParams: FieldParams) {
+  constructor(container: HTMLElement, initialParams: FieldParams, overlay: KernelOverlay) {
+    this.overlay = overlay;
+
     const panel = document.createElement("div");
     panel.className = "eq-panel";
 
@@ -87,11 +91,26 @@ export class EquationPanel {
     panel.appendChild(this.buildEquation(EQ1, "eq-line"));
     panel.appendChild(this.buildEquation(EQ2, "eq-line eq-line--sub"));
 
+    const kernelHeader = document.createElement("div");
+    kernelHeader.className = "eq-kernel-header";
+
     const kernelTitle = document.createElement("div");
     kernelTitle.className = "eq-title";
-    kernelTitle.style.marginTop = "6px";
     kernelTitle.textContent = "Mexican Hat Kernel";
-    panel.appendChild(kernelTitle);
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "kernel-toggle-btn";
+    toggleBtn.textContent = "show on cursor";
+    let overlayOn = false;
+    toggleBtn.addEventListener("click", () => {
+      overlayOn = !overlayOn;
+      if (overlayOn) { this.overlay.enable();  toggleBtn.classList.add("active"); }
+      else           { this.overlay.disable(); toggleBtn.classList.remove("active"); }
+    });
+
+    kernelHeader.appendChild(kernelTitle);
+    kernelHeader.appendChild(toggleBtn);
+    panel.appendChild(kernelHeader);
 
     panel.appendChild(this.buildEquation(EQ_KERNEL, "eq-line"));
     panel.appendChild(this.buildKernelCanvas(initialParams));
@@ -106,6 +125,7 @@ export class EquationPanel {
 
   update(params: FieldParams): void {
     this.drawKernel(params);
+    this.overlay.update(params);
   }
 
   private buildKernelCanvas(params: FieldParams): HTMLElement {
@@ -132,30 +152,24 @@ export class EquationPanel {
 
     ctx.clearRect(0, 0, W, H);
 
-    // sample w(r) over [0, kernelRadius]
     const samples = W;
     const values: number[] = [];
+    const excitValues: number[] = [];
+    const inhibValues: number[] = [];
     for (let i = 0; i < samples; i++) {
       const r = (i / (samples - 1)) * kernelRadius;
       const r2 = r * r;
-      values.push(A_e * Math.exp(-r2 / (2 * sigma_e * sigma_e))
-                - A_i * Math.exp(-r2 / (2 * sigma_i * sigma_i)));
+      const e =  A_e * Math.exp(-r2 / (2 * sigma_e * sigma_e));
+      const ih = A_i * Math.exp(-r2 / (2 * sigma_i * sigma_i));
+      excitValues.push(e);
+      inhibValues.push(-ih);
+      values.push(e - ih);
     }
 
     const maxAbs = Math.max(...values.map(Math.abs), 1e-6);
     const pad = 6;
     const midY = H / 2;
     const scaleY = (H / 2 - pad) / maxAbs;
-
-    // individual gaussian curves
-    const excitValues: number[] = [];
-    const inhibValues: number[] = [];
-    for (let i = 0; i < samples; i++) {
-      const r = (i / (samples - 1)) * kernelRadius;
-      const r2 = r * r;
-      excitValues.push( A_e * Math.exp(-r2 / (2 * sigma_e * sigma_e)));
-      inhibValues.push(-A_i * Math.exp(-r2 / (2 * sigma_i * sigma_i)));
-    }
 
     const drawCurve = (vals: number[], stroke: string, fill: string) => {
       ctx.beginPath();
@@ -182,7 +196,6 @@ export class EquationPanel {
       ctx.setLineDash([]);
     };
 
-    // zero line
     ctx.strokeStyle = "#2a2a2a";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -190,12 +203,9 @@ export class EquationPanel {
     ctx.lineTo(W, midY);
     ctx.stroke();
 
-    // excitatory gaussian — green/teal
     drawCurve(excitValues, "#3ecfcf", "rgba(109,214,160,0.10)");
-    // inhibitory gaussian — red/violet
     drawCurve(inhibValues, "#c97bf7", "rgba(244,124,124,0.10)");
 
-    // net w(r) curve — white/bright on top
     ctx.beginPath();
     for (let i = 0; i < samples; i++) {
       const x = (i / (samples - 1)) * W;
@@ -206,7 +216,6 @@ export class EquationPanel {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // r axis label
     ctx.fillStyle = "#444";
     ctx.font = "9px monospace";
     ctx.fillText("0", 2, midY - 2);
@@ -220,7 +229,6 @@ export class EquationPanel {
     const expr = document.createElement("div");
     expr.className = "eq-expr";
 
-    // Tooltip rendered after expr so it overlays below without shifting layout
     const tooltip = document.createElement("div");
     tooltip.className = "eq-tooltip";
 

@@ -28,6 +28,7 @@ async function main(): Promise<void> {
 
   new ControlsPanel(
     document.body,
+    canvas,
     params,
     (updated) => {
       Object.assign(params, updated);

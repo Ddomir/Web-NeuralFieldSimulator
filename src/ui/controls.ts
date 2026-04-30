@@ -1,6 +1,7 @@
 import type { FieldParams } from "../sim/field.ts";
 import { PRESETS } from "../sim/field.ts";
 import { EquationPanel } from "./equation.ts";
+import { KernelOverlay } from "./kernel_overlay.ts";
 
 interface SliderDef {
   key: keyof FieldParams;
@@ -35,6 +36,7 @@ export class ControlsPanel {
 
   constructor(
     container: HTMLElement,
+    simCanvas: HTMLCanvasElement,
     initialParams: FieldParams,
     onChange: (p: FieldParams) => void,
     onPreset: (p: FieldParams) => void,
@@ -42,14 +44,15 @@ export class ControlsPanel {
     this.params   = { ...initialParams };
     this.onChange = onChange;
     this.onPreset = onPreset;
-    this.build(container);
+    this.build(container, simCanvas);
   }
 
-  private build(container: HTMLElement): void {
+  private build(container: HTMLElement, simCanvas: HTMLCanvasElement): void {
     const panel = document.createElement("div");
     panel.id = "controls-panel";
 
-    this.equationPanel = new EquationPanel(panel, this.params);
+    const overlay = new KernelOverlay(simCanvas, this.params);
+    this.equationPanel = new EquationPanel(panel, this.params, overlay);
     panel.appendChild(this.buildPresetRow());
 
     for (const def of SLIDERS) {

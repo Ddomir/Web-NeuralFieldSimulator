@@ -57,6 +57,17 @@ export const PRESETS: Preset[] = [
       tonic: 0.0,
     },
   },
+  {
+    name: "Cell March",
+    params: {
+      dt: 0.02, tau: 1, tau_v: 40,
+      beta: 15.0, theta: 0.05,
+      A_e: 0.017,
+      A_i: 0.011,
+      sigma_e: 5, sigma_i: 11, kernelRadius: 16, noise: 0.01,
+      tonic: 0.0,
+    },
+  }
 ];
 
 // Evoked wave

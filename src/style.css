@@ -129,6 +129,38 @@ body {
   text-align: right;
 }
 
+/* ── Kernel overlay toggle ───────────────────────────────────── */
+.eq-kernel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.kernel-toggle-btn {
+  font-family: monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #555;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.kernel-toggle-btn:hover {
+  border-color: #555;
+  color: #999;
+}
+
+.kernel-toggle-btn.active {
+  background: #f7c94820;
+  border-color: #f7c948;
+  color: #f7c948;
+}
+
 /* ── Kernel canvas ───────────────────────────────────────────── */
 .kernel-canvas-wrap {
   width: 100%;
